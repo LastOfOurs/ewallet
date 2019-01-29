@@ -402,6 +402,19 @@ jobs:
                 docker tag "$IMAGE_NAME" "$IMAGE_NAME:$tag"
                 docker push "$IMAGE_NAME:$tag"
             done
+
+  report_mainline:
+    executor: builder
+    steps:
+      - notify_slack
+
+  deploy:
+    executor: builder
+    steps:
+      - run:
+          name: Logging into Docker Hub
+          command: |
+            echo Hi
       - notify_slack
 
 
@@ -441,7 +454,7 @@ workflows:
             tags:
               ignore: /^v.*/
 
-      # Mainline branches only
+      # Mainline branches and E2E-enabled branches
       - build:
           requires:
             - lint
@@ -462,3 +475,24 @@ workflows:
           requires:
             - test_e2e
           filters: *mainline_branches
+      - report_mainline:
+          requires:
+            - publish
+          filters:
+            <<: *mainline_branches
+            branches:
+              # Explicitly ignore master because master is getting reported
+              # as part of deploy step.
+              ignore:
+                - master
+                - 751-master-staging-deploy-e2e
+
+      # Master branch only
+      - deploy:
+          requires:
+            - publish
+          filters:
+            branches:
+              only:
+                - master
+                - 751-master-staging-deploy-e2e
